@@ -1,0 +1,59 @@
+---
+title: "ISYE6501 Homework 2"
+author: ''
+date: "1/18/2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Question 3.1
+
+Find a good classifier using ksvm or kknn, include cross-validation and splitting the data sets.
+
+```{r question3.1}
+# another student suggested this library to split the data, so let's try it
+library(caTools)
+library(kknn)
+rm(list = ls())
+set.seed(42) # the answer of life
+ccdata <- read.delim("~/Documents/R/GeorgiaTech/Validation/credit_card_data-headers.txt")
+
+# preview data
+head(ccdata)
+# will be used next in a for loop
+max_k <- 50
+
+# vector to save predictions
+accuracy <- c()
+# now calculate the accuracy for kmax neighbors
+for (neighbor in 1:max_k) {
+    # this package includes cross validation
+    model <- cv.kknn(R1~.,ccdata, kcv=10, # use the common k-folds (Dr. Sokol suggested it)
+            k=neighbor, 
+            scale=TRUE) 
+    # round it to make it comparable
+    pred <- round(model[[1]][,2])
+    accuracy[neighbor] <- sum(pred == ccdata$R1)/nrow(ccdata)
+}
+# show accuracies for each k
+print (accuracy)
+# see how accuracy behaves
+plot(accuracy, ylab="prediction accuracy",xlab="K values")
+lines(accuracy)
+print (which.max(accuracy))
+
+```
+Here we can look the accuracy for each K. The graph shows that accuracy with k < 5 are the worst and then it behaves similarly, being the best K in the range from 10 to 20. After k > 20 it starts to decrease.
+
+Our model determines that the best k is the following one
+```{r}
+print (which.max(accuracy))
+```
+
+
+

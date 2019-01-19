@@ -2,7 +2,7 @@
 title: "Homework 1"
 author: "Pablo Diaz"
 date: "1/12/2019"
-output: html_document
+output: pdf_document
 ---
 
 
