@@ -12,12 +12,13 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 # Question 3.1
+## (a) cv
+Find a good classifier using ksvm or kknn, include cross-validation (a) and splitting the data sets (b).
 
-Find a good classifier using ksvm or kknn, include cross-validation and splitting the data sets.
+First try the cross validation with kknn
 
-```{r question3.1}
-# another student suggested this library to split the data, so let's try it
-library(caTools)
+```{r question3.1_a}
+
 library(kknn)
 rm(list = ls())
 set.seed(42) # the answer of life
@@ -25,9 +26,9 @@ ccdata <- read.delim("~/Documents/R/GeorgiaTech/Validation/credit_card_data-head
 
 # preview data
 head(ccdata)
-# will be used next in a for loop
-max_k <- 50
-
+# test multiple k-values
+max_k <- 100
+max_k_folds <- 20
 # vector to save predictions
 accuracy <- c()
 # now calculate the accuracy for kmax neighbors
@@ -38,22 +39,138 @@ for (neighbor in 1:max_k) {
             scale=TRUE) 
     # round it to make it comparable
     pred <- round(model[[1]][,2])
-    accuracy[neighbor] <- sum(pred == ccdata$R1)/nrow(ccdata)
+    # show as percentage
+    accuracy <- c(accuracy, round(sum(pred == ccdata$R1)/nrow(ccdata), digits = 4)*100)
 }
-# show accuracies for each k
+# show accuracy for each k
 print (accuracy)
 # see how accuracy behaves
 plot(accuracy, ylab="prediction accuracy",xlab="K values")
 lines(accuracy)
-print (which.max(accuracy))
+# this is used to print a table in 4 columns
+half <- max_k/2
+matrix <- cbind(seq(1,half), accuracy[1:half],seq((half+1), max_k), accuracy[(half+1):50])
+colnames(matrix) <- c("k", "accuracy %", "k", "accuracy %")
+library(knitr) # table library
+table <- kable(matrix)
+print (table)
 
 ```
-Here we can look the accuracy for each K. The graph shows that accuracy with k < 5 are the worst and then it behaves similarly, being the best K in the range from 10 to 20. After k > 20 it starts to decrease.
+Here we can look the accuracy for each K. The graph shows that accuracy with k < 5 are the worst and then it behaves similarly. There are multiple k values, that have a small accuracy difference. After k > 20 accuracy seems to decrease (also look plot).Cross validation helps you make better use of your data, and the averaging process helps give a better estimate of model quality. Cross validation is not used to pick a model but to make better use of the data and get a better estimate of model quality.
 
 Our model determines that the best k is the following one
-```{r}
+```{r, echo=FALSE}
 print (which.max(accuracy))
 ```
+With an accuracy of 
+```{r, echo=FALSE}
+paste(max(accuracy), "%")
+```
+
+The kknn tells us that the 12 nearest neighboors help to classify/cluster with `86.09%` accuracy. When I compare the kknn in Homework 1 this accuracy is minimal better and the k-value is the same. Also I tested the model with different k-folds, I'm not leaving the proof of this because it will be too long, but the result accuracy is the same but the k varies. In this case the best k is affected by the k-folds/groups selected but this is not relevant. According to wikipedia `10-fold cross-validation is commonly used, but in general k remains an unfixed parameter.` 
+
+Finally I learned that the kknn in Homework 1 did also cross validation k = 654. When k = n (the number of observations), the k-fold cross-validation is exactly the leave-one-out cross-validation.
+
+## (b) Now we split the data (kknn)
+
+```{r question3.1_b}
+# another student suggested this library to split the data, so let's try it
+library(caTools)
+library(kernlab)
+rm(list = ls())
+set.seed(42) # the answer of life
+ccdata <- read.delim("~/Documents/R/GeorgiaTech/Validation/credit_card_data-headers.txt")
+# split 75% training, 7.5% validation and 7.5% test
+sample = sample.split(ccdata, SplitRatio = 0.75)
+train = subset(ccdata, sample == TRUE)
+remaining  = subset(ccdata, sample == FALSE)
+# split in half
+sample2 = sample.split(remaining, SplitRatio = .50)
+validation = subset(remaining, sample2 == TRUE)
+test = subset(remaining, sample2 == FALSE)
+
+# verify
+
+is_equals <- nrow(test) + nrow(validation) + nrow(train) == nrow(ccdata)
+print (is_equals) # is valid
+#pick first KNN
+accuracy <- c()
+for (k in 1:50) {
+
+  # model knn using training and validation
+  model_knn <- kknn(R1~.,train,validation,k=k,scale=TRUE)
+
+	#  compare with validation
+  prediction <-  round(model_knn$fitted.values)
+  accuracy<-c(accuracy,sum(prediction == validation$R1) / nrow(validation))
+}
+print (paste("Best model is", which.max(accuracy)))
+print (paste("Best accuracy is ", max(accuracy)*100, "%"))
+
+```
+```{r plot_b, echo=FALSE}
+plot(accuracy, ylab="prediction accuracy",xlab="K values")
+lines(accuracy)
+```
+```{r}
+# now compare quality with test data 
+model_knn <- kknn(R1~.,train,test, k=which.max(accuracy), scale=TRUE)
+# round to make it comparable
+pred <- round(model_knn$fitted.values)
+# calculate performance
+ac <- sum(pred == test$R1) / nrow(test)
+print (paste("KNN performance on test data is ",ac*100, "%"))
+
+```
+# (b) now compare it with the SVM
+
+The valid way to compare it is against the performance on the test
+```{r}
+# make vector with c values to test
+C_values <- c(10^(-7:7))
+acc_svm <- c()
+for (i in 1:15) {
+
+	# fit model using training set
+  model_ksvm <- ksvm(train$R1~., data=train, type = "C-svc", kernel = "vanilladot",
+  C = C_values[i],
+  scaled=TRUE) 
+
+	#  accuracy model using validation set
+  pred <- predict(model_ksvm, validation[,1:10])
+  acc_svm <- c(acc_svm, sum(pred == validation$R1) / nrow(validation))
+}
+
+print (paste("Best C ksvm ",C_values[which.max(acc_svm)]))
+print (paste("KSVM quality on validation data  ",max(acc_svm)*100))
+model_scaled <- ksvm(train$R1~., data=train,
+	 type = "C-svc",
+  kernel = "vanilladot", #could test with other non linear kernel
+  C = C_values[which.max(acc_svm)], #pick the best model
+	 scaled=TRUE)
+
+# estimate real quality/performance
+ac <- sum(predict(model_scaled,test[,1:10]) == test$R1) / nrow(test)
+print (paste("KSVM Quality on test data is ",ac*100, "%"))
+
+
+```
+
+We can say that the ksvm has better performance on validation data, and we can't use the test performance to compare the models because if we use the same data to pick the best model as we do to estimate how good the best one is, the model will appear to be better than it really is.
+
+So we actually pick the `ksvm` as the best (validation data) and the estimated performance of the model is `80.61%` (test data).
+
+# Question 4.1
+
+In my current work (telephone company) we use clustering algorithms to identify which cellphone numbers are related to the same family. In this case each family is a cluster we want to identify. For our company it is valuable to know this, so we can make specialized offers to the members of the family and also it is used to contact only one of them instead of randomly call all the members of the family (we don't want to spam our 9 million users). The predictors we currently use are the following.
+
+1. The location at night (we suppose that people that sleeps in the same location can be family)
+2. The most numbers they have calls in. (We have this as a relative continous variable in the database)
+3. The most numbers they have calls out.(We have this as a relative continous variable in the database.)
+4. The owners of the cellphone line (we suppose that children (<18) have phones and their parents are the owners, also as a relative continous variable)
+5. The most SMS sent (as relative continous variable, we suppose that family text each other frequently)
+
+# Question 4.2
 
 
 
