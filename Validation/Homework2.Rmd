@@ -1,11 +1,10 @@
 ---
 title: "ISYE6501 Homework 2"
 author: ''
-date: "1/18/2019"
+date: "1/20/2019"
 output:
-  pdf_document: default
-  html_document:
-    df_print: paged
+  pdf_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
@@ -122,7 +121,7 @@ ac <- sum(pred == test$R1) / nrow(test)
 print (paste("KNN performance on test data is ",ac*100, "%"))
 
 ```
-# (b) now compare it with the SVM
+## (b) now compare it with the SVM
 
 The valid way to compare it is against the performance on the test
 ```{r}
@@ -171,6 +170,95 @@ In my current work (telephone company) we use clustering algorithms to identify 
 5. The most SMS sent (as relative continous variable, we suppose that family text each other frequently)
 
 # Question 4.2
+Use the R function kmeans to cluster the points as well as possible. Report the best combination of
+predictors, your suggested value of k, and how well your best clustering predicts flower type.
 
+```{r question4.2}
+rm(list = ls())
+set.seed(42) # the answer of life
+# default dataset in R, this has the response variable but it should be used only to compare
+data <- iris
+# according to the TA we can plot the data to have an idea how we can cluster
+library(ggplot2)
+normalize <- function(x){
+  return ((x-min(x))/(max(x)-min(x)))
+}
+# we should scale the data, mean = 0 and stdev = 1
+data.scaled<- data[,c(1,2,3,4)]
+data.scaled$Sepal.Length<- normalize(data.scaled$Sepal.Length)
+data.scaled$Sepal.Width<- normalize(data.scaled$Sepal.Width)
+data.scaled$Petal.Length<- normalize(data.scaled$Petal.Length)
+data.scaled$Petal.Width<- normalize(data.scaled$Petal.Width)
+# after testing a few plots, this give us 3 good potential groups 
+#ggplot(data , aes(Petal.Length, Petal.Width, color = Species)) + geom_point()
+#ggplot(data , aes(Sepal.Length, Sepal.Width, color = Species)) + geom_point()
+#ggplot(data , aes(Sepal.Length, Petal.Width, color = Species)) + geom_point()
+ggplot(data , aes(Petal.Length, Sepal.Width, color = Species)) + geom_point()
+
+range<-1:10
+n <-20 #Run the K Means algorithm n times
+avg <-integer(length(range)) #Set up an empty vector to hold all of points
+avg2 <- integer(length(range))
+for(k in range){ # For each value of the range variable
+ value <-integer(n) #Set up an empty vector to hold the n tries
+ within_cluster_sum<-integer(n)
+ for(i in 1:n){
+   k.temp <-kmeans(data.scaled[c(1,4)],centers=k, nstart = 10) #Run kmeans
+   # cluster sum of squares by cluster
+   value[i] <-k.temp$betweenss/k.temp$totss*100 #store accuracy
+   within_cluster_sum[i] <- k.temp$tot.withinss
+ }
+ avg[k] <-mean(value) #Average the n total accuracy
+ avg2[k] <-mean(within_cluster_sum) #Average the n total accuracy
+}
+# see the values and the plot
+avg
+plot(range,avg,type="b", main="Accuracy of clustering",
+ ylab="Accuracy",
+ xlab="Value of K")
+# accuracy here is: measure of the total distance between points and their cluster centers
+# we can see that when k=4, accuracy is around 90%
+plot(range,avg2,type="b", main="Elbow diagram",
+ ylab="Average Total Within Sum of Squares",
+ xlab="Value of K")
+# compare other k's with Species
+cluster3 <- kmeans(data.scaled[c(1,4)],3, nstart = 10)
+cluster4 <- kmeans(data.scaled[c(1,4)],4, nstart = 10)
+cluster5 <- kmeans(data.scaled[c(1,4)],5, nstart = 10)
+# now use the actual clustering that we shouldn't know
+# here we can compare how the kmeans clutered the species
+table(cluster3$cluster, data$Species)
+table(cluster4$cluster, data$Species)
+table(cluster5$cluster, data$Species)
+
+# plot cluster
+
+ggplot(data, aes(Sepal.Length, Petal.Width, color = cluster4$cluster)) + geom_point()
+
+```
+
+## Analysis of Clustering
+
+In this problem we had 4 predictors to find the best cluster. Those predictors were Sepal.Length, Sepal.Width, Petal.Length and Petal.Width. To have better results I scaled the data (stdev=1). 
+
+To know which predictors to use, I followed the suggestion from the TA. Graph the predictors with `ggplot2` and see which one would generate some easy to divide group. So I tested and found out that using `Sepal.Length, Petal.Width` or using `Petal.Length, Petal.Width` could be good enough as predictors.
+
+
+Then I tested multiple k's from 1 to 10. Then there were two types of measuring how good was the clusters (kmeans result). 
+
+  1. Measure of the total distance between points and their cluster centers.
+  2. In this data set, we had the actual cluster each data point belongs to, but we won't have this data on a real clustering problem. 
+  
+  So I focused more on the first measuring type.
+  
+  I found I way to measure the accuracy of the total distance between points by
+  this equation = `The between-cluster sum of squares/The total sum of squares`. 
+  
+  In the first plot we can see that when k >= 3, the accuracy is `>94%`. Take notice that here there is no need to use the best accuracy we have, because we only need to know a good cluster enough for our needs. So I recommend to use k = 4 to cluster our iris data.
+  
+  To confirm this I made the `Elbow diagram` using `Total within-cluster sum of squares` and I can confirm that when k >= 3, the cluster is good enough. 
+  
+  Finally I used the table to use the classification of Species and confirm the clustering. With k = 4, setosa is all clustered in one group, versicolor in 2 groups and virginica almost in 2 groups.
+  
 
 
