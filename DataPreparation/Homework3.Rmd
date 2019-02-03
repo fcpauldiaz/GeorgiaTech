@@ -27,9 +27,11 @@ crime <- scale(uscrime$Crime)
 # before using the grubbs function it is a good idea to plot the points
 plot(crime)
 # it is a simple plot, but I can observe that there are two points that are higher than most points
-# I cannot see that there are some minium points that could be outliers. so let's test other plotting methods
+# I cannot see that there are some minium points that could be outliers. 
+#so let's test other plotting methods
 
-# with this whiskers plot, I can confirm that there are 2 definite outliers and one other possibe outlier.
+# with this whiskers plot, I can confirm that there are 2 definite 
+#outliers and one other possibe outlier.
 boxplot(uscrime$Crime,col=rgb(0,0,1,0.5), main="Box plot of Crime")
 # This graph shows that most of the data behaves normal and shows 5 possible outliers.
 qqline(uscrime$Crime,col=rgb(0,0,1,0.5))
@@ -47,15 +49,27 @@ data <- uscrime$Crime[-match(c(1993), uscrime$Crime)]
 
 # test again
 outliers <- grubbs.test(data, type = 10)
-print (outliers)
 # p-value is not high enough, highest value 1969 is an outlier
+print (outliers)
+
 data <- data[-match(c(1969), data)]
 # test again, p-value here is high enough
 outliers <- grubbs.test(data, type = 10)
 print (outliers)
+# now show the box and whiskers plot without outliers
 boxplot(data,col=rgb(0,0,1,0.5), main="Box plot of Crime")
 
 
+# what else could be done? Test other outlier methods and see the results.
+library(EnvStats)
+# here k is the potential number of outliers
+rTest_1 <- rosnerTest(uscrime$Crime, k = 2, alpha = 0.05, warn = TRUE)
+# no outliers found!
+print (rTest_1)
+
+rTest_2 <- rosnerTest(uscrime$Crime, k = 3, alpha = 0.05, warn = TRUE)
+# no outliers found!
+print (rTest_2)
 ```
 
 ## Analysis
@@ -63,6 +77,9 @@ boxplot(data,col=rgb(0,0,1,0.5), main="Box plot of Crime")
 First I made some plots to see how the data was behaving. I saw at least three possible outliers in the highest parts of the data. After removing 2 of them, I plotted the whiskers box and saw that it showed one possible outlier. Since the data is only 47 points, it is probably that the graph and the grubbs test will always say that there is an outlier. So I just removed two of them according to the `p-values`. Also before applying grubbs test I saw if the data had some nomal behavior through the qqplot. 
 
 I didn't used a normality test because I didn't found one that was relaible. Normality tests don't do what most think they do. Shapiro's test, Anderson Darling, and others are null hypothesis tests AGAINST the the assumption of normality. These should not be used to determine whether to use normal theory statistical procedures. In fact they are of virtually no value to the data analyst. Under what conditions are we interested in rejecting the null hypothesis that the data are normally distributed?
+
+To test another method to detect outliers, I chose to perform Rosner's generalized extreme Studentized deviate test for up to k potential outliers in a dataset, assuming the data without any outliers come from a normal (Gaussian) distribution. This test said that there were no outliers, so it was not very helpful. Notice that I tested it with the original data and not with the data without outliers.
+
 
 
 # Question 6.1

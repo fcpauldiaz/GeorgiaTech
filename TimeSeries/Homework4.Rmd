@@ -1,0 +1,141 @@
+---
+title: "Homework4"
+date: "02/04/2019"
+output:
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 7.1
+
+Describe a situation or problem from your job for which exponential smoothing would be appropiate. What data you need? Would you expect the value of alpha to be closer to 0 or 1 and why?
+
+## Response to Question 7.1
+
+For instance, a magazine company wants to study the best channels to publicize their magazine subscriptions. The company has multiple channels to set the advertising. For the study they measure each channel every week and measure new subscriptions.
+
+For each channel the company builds an exponential smoothing model, with weekly subscriptions as the value to measure (response). It would include cyclic effects where a cycle could be the renewing subscriptions every year and the trend would show if the annually subscriptors are increasing or decreasing. The company could have variability for other variables that are not taken into account here and the estimate would be better if it is updated so I would expect the value of $\alpha$ to be closer to 1. Why ? This parameter controls the rate at which the influence of the observations at prior time steps decay exponentially. Alpha is often set to a value between 0 and 1. Large values mean that the model pays attention mainly to the most recent past observations, whereas smaller values mean more of the history is taken into account when making a prediction.
+
+A value close to 1 indicates fast learning (that is, only the most recent values influence the forecasts), whereas a value close to 0 indicates slow learning (past observations have a large influence on forecasts)
+
+# Question 7.2
+
+Using the 20 years of daily high temperature data for Atlanta (July through October) from Question 6.2 (file temps.txt), build and use an exponential smoothing model to help make a judgment of whether the unofficial end of summer has gotten later over the 20 years.
+
+```{r}
+set.seed(42) #answer of life
+# import the data
+temps <- read.delim("~/Documents/R/GeorgiaTech/TimeSeries/temps.txt")
+# to use Holt Winter, first it is needed to create a time series object
+
+# the frequency is the data points per year
+# start is a vector by year and month of starting data
+data <- as.vector(unlist(temps[,2:ncol(temps)])) #unlists flattens the list
+dataTimeSeries <- ts(data, start = c(1996,7), frequency = 123, end = c(2015, 10))
+dataTimeSeries <- ts(data, start = 1996, frequency = 123, end = 2015)
+
+#dataTimeSeries <- ts(data, start = 1996, frequency = 123)
+
+# lets plot the data to see 
+ts.plot(dataTimeSeries, col = 1:23)
+# it is difficult to see here much information because it is too much data to visualize
+# but at least temps look consistent through the years.
+
+# now test Holt Winters with single exponential smoothing without trend
+result1 <- HoltWinters(dataTimeSeries, beta=FALSE, gamma = FALSE)
+print (result1)
+# test double exponential smoothing with trend
+result2 <- HoltWinters(dataTimeSeries, gamma = FALSE)
+print (result2)
+# test triple exponential smoothing with trend and additive seasonality
+result3 <- HoltWinters(dataTimeSeries)
+print (result3)
+# the red color indicates the estimated values
+plot(result3$fitted)
+
+# triple exponential smoothing with mutiplicative seasonality
+result4 <- HoltWinters(dataTimeSeries, seasonal="multiplicative")
+plot(result4)
+plot(result4$fitted)
+
+```
+
+## Analysis 7.2
+First I converted the data to a times series data because the model needs it in that special format. Then applied different versions HoltWinters to apply the exponential smoothing.
+Here $\alpha$ (alpha) is the smoothing coefficient for the level, $\beta$ (beta) is the smoothing coefficient for the trend and $\gamma$ (gamma) is the smoothing coefficient for the seasonal component.
+
+According to the graphs, we don't have enough evidence to assume that the unofficial end of summer hast gotten later over the years. The trends have basically stayed the same.
+
+To validate this statement, now it will be applied the CUSUM model to test the seasonal factors of the fitted model.
+
+```{r}
+options(warn=-1)
+# now apply CUSUM
+temps <- read.delim("~/Documents/R/GeorgiaTech/TimeSeries/temps.txt")
+cusum <- function(data_mu, data, c_ratio,t_ratio) {
+  # standard deviation
+  data_sd <- sd(data_mu)
+  mu <- mean(data_mu)
+  C <- c_ratio*data_sd
+  T <- t_ratio*data_sd
+  # Calculate a new vector of mu - x[i] - C to detect a negative change in
+  # temperature since we know temps will drop
+  calc <- mu - data - C
+  # Calculate a new vector called s_t using a for loop
+  s_t <- c(0)
+  for (i in 2:length(data)) {
+    s_t[i] <- max(0,s_t[i-1]+calc[i]) 
+  }
+  
+  for (i in 1:length(s_t)) {
+    if (s_t[i] >= T) {
+      result <- list("index"=i, "s"= s_t, "c"=C, "t"=T)
+      return (result)
+    }
+  }
+}
+# run cusum for each year
+year_result <- c(0)
+start <- 1
+finish <- 123
+current <- 0
+for (j in 1:18) {
+  begin <- start + current
+  end   <- finish + current
+  july <- result4$fitted[,4][begin:(begin+31)]
+  current_year <- result4$fitted[,4][begin:end]
+  year_result[j] <- cusum(july,current_year, 1,8)$index
+  current <- current + 123
+}
+
+print (year_result)
+day_change <- mean(year_result)
+print (day_change)
+print (paste('The day which the summer ends for the avg year is: ',temps$DAY[day_change]))
+plot(year_result, main = 'Day of summer change each year', xlab = 'Year', ylab =
+'day',at=1:19, labels=as.vector(c(1996:2014)))
+lines(year_result)
+
+
+# just for demostration this is how a cusum individual year is shown
+july <- result4$fitted[,4][1:31]
+current_year <- result4$fitted[,4][124:246]
+individual_result <- cusum(july,current_year, 1,8)
+plot(individual_result$s, main = 'Example CUSUM for 1997', xlab = 'Day', ylab ='s_t', col = ifelse(individual_result$s > individual_result$t,'blue','black'))
+legend('topleft',legend = c('C: ',individual_result$c,'T:',individual_result$t))
+# the blue points are the ones that have s_t[i] > T
+```
+
+## Continue Analysis 7.2
+
+For this part I used the seasonal model made by the smoothing exponential model to test if the summer ending day has changed through the years in atlanta.
+
+To correctly test the cusum model it was important to divide the data for each 123 data points, because here the data is not divided by years so it had to be divided manually to test each year. For the $\mu$ (expected value) for the cusum model I used only July because it is expected that the summer won't finish in that month.
+
+The resulting plot says that the summer is ending on `9-sept` on average. The plot with the average ending summer for each year shows a significant decrease in the `2004-2005` period. That means that the summer is ending earlier after that period but then it starts to normalize after the year `2008`. Also like homework 3, the result is sensible to the C and T values.
+
+I would say there is no strong evidence to conclude without a doubt that the summer is ending later. To have strong evidence more years should be analyzed to see what actually the trend is.
