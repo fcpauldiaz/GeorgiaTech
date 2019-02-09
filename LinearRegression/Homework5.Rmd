@@ -30,7 +30,7 @@ set.seed(42)
 # import data
 uscrime <- read.delim("~/Documents/R/GeorgiaTech/DataPreparation/uscrime.txt")
 # see graphically
-plot(uscrime)
+plot(uscrime$Crime)
 # we already know there are 2 outliers from homework 3 but it is a good practice to check for it.
 boxplot(uscrime$Crime,col=rgb(0,0,1,0.5), main="Box plot of Crime")
 # This graph shows that most of the data behaves normal and shows 2 possible outliers.
@@ -64,9 +64,9 @@ better_model_2 <- lm(Crime ~ M + Ed + U2 +Po1+ Ineq + Prob, uscrime)
 summary(better_model_2)
 ```
 
-With this change the $R^2$ value has risen to `0.73`, so the threshold of the p-value can have significant relevance over the model quality.
+With this change the adjusted $R^2$ value has risen to `0.73`, so the threshold of the p-value can have significant relevance over the model quality. It is better to use the adjusted $R^2$ because the other one will always increase when the predictors increase, the adjusted one takes into account the number of predictors used, so it is more reliable.
 
-The $R^2$ value is not the unique measure for a linear regression model, let's try Dr. Sokol lectures and apply `Akaike’s information criterion - AIC and the Bayesian information criterion - BIC`
+The adjusted $R^2$ value is not the unique measure for a linear regression model, let's try Dr. Sokol lectures and apply `Akaike’s information criterion - AIC and the Bayesian information criterion - BIC`
 
 ```{r}
 # model 1
@@ -85,9 +85,63 @@ BIC(better_model_2)
 ```
 
 
-Now let's try to predict, with the given data.
+Now let's try to predict, with the given data and the models.
 
 ```{r}
-data_point <-data.frame(M = 14.0,So = 0, Ed = 10.0, Po1 = 12.0, Po2 = 15.5,LF = 0.640, M.F = 94.0, Pop = 150, NW = 1.1, U1 = 0.120, U2 = 3.6, Wealth = 3200, Ineq = 20.1, Prob = 0.040,Time = 39.0)
+data_point <-data.frame(M=14.0,So=0, Ed = 10.0, Po1 = 12.0, Po2=15.5,LF = 0.640, M.F=94.0, Pop = 150, NW=1.1, U1 = 0.120, U2=3.6, Wealth = 3200, Ineq = 20.1, Prob = 0.040,Time=39.0)
+
+pred_model1 <- predict(model, data_point)
+pred_model1
+
+pred_model2 <- predict(better_model,data_point)
+pred_model2
+
+pred_model3 <- predict(better_model_2, data_point)
+pred_model3
+
+# basic stats to compare the predictions
+avg <- mean(uscrime$Crime)
+mx <- max(uscrime$Crime)
+mn <- min(uscrime$Crime)
+avg
+mx
+mn
 ```
+
+
+As it can be seen, the predicted value with the first model `155` seems not real because it is less than the minimum value of the whole data set. The predicted value with model 2 and 3, are near the average and between the range, so those values make sense. The best model still is model 3 because has lower AIC, BIC and better adjusted $R^2$.
+
+The equation of the best model is the following one:
+
+$ y = -5040.50 + 105.02M + 196.47Ed+ 89.39U2 + 115.02Po1 + 67.65Ineq - 3801.84Prob $
+
+
+In linear regression it is important to understand what the coefficients mean, so here it is the description on each coefficient used.
+
+M = 	percentage of males aged 14–24 in total state population
+Ed = 	mean years of schooling of the population aged 25 years or over
+Po1 = per capita expenditure on police protection in 1960
+U2 = unemployment rate of urban males 35–39
+Ineq = 	income inequality: percentage of families earning below half the median income.
+Prob = 	probability of imprisonment: ratio of number of commitments to number of offenses
+
+Seeing this information it could be very tempting to say, for example, unemployment leads to crime, but remember that correlation doesn't mean causation.
+
+### Regression output
+
+
+```{r}
+# confidence interval
+confint(better_model_2)
+# Adjusted R squared
+summary(better_model_2)$adj.r.squared
+# Residual Standard Error (RSE)
+sigma(better_model_2)/mean(uscrime$Crime)
+```
+
+The $R^2$ can be interpreted as `73%` of the variance in the measure of crime can be predicted by M, Ed, Po1, U2, Ineq and Prob.
+
+The RSE can be interpreted as `23%` errror rate of the model (The less is better)
+
+The `1%` threshold chosen for the p-values means that each coefficient will have `1%` of chance of not being significant.
 
