@@ -1,0 +1,93 @@
+---
+title: "Homework5"
+author: "Pablo"
+date: "08/02/2019"
+output:
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 8.1
+
+I work in analytics in a telephone company and the linear regression is a easy model to use in a production environment and easy to understand, so we use it regularly. For this example, I have a nice example. In our telephone company, the prepaid users are the majority of users and they make the most of the revenue of the company. The prepaid users are the ones without a contract and they recharge their phone voice plans or data plans according to their needs. So in this case we want to predict monthly sales of prepaid recharges using data from previous years. As possible predictors we can use the following ones:
+
+1. The monthly recharges of voice plans (minutes).
+2. The monthly recharges of data plans (GB).
+3. The monthly new users we have.
+4. The montly users we loose (churn).
+5. The monthly active users.
+
+# Question 8.2
+
+use regression (a useful R function is lm or glm) to predict the observed crime rate in a city.
+
+```{r}
+set.seed(42)
+# import data
+uscrime <- read.delim("~/Documents/R/GeorgiaTech/DataPreparation/uscrime.txt")
+# see graphically
+plot(uscrime)
+# we already know there are 2 outliers from homework 3 but it is a good practice to check for it.
+boxplot(uscrime$Crime,col=rgb(0,0,1,0.5), main="Box plot of Crime")
+# This graph shows that most of the data behaves normal and shows 2 possible outliers.
+qqline(uscrime$Crime,col=rgb(0,0,1,0.5))
+# build the model with all avaialble predictors.
+model <- lm( Crime ~ ., uscrime)
+
+# lets see 
+print (summary(model))
+```
+
+## Analysis 8.2
+
+To apply a linear regression model to a data set is pretty straight forward.
+
+First use all the variable we have to build the model and we analyze the model there are some predictors with high `p-values` that we can remove because they won't be significant coefficients for the model. The adjusted $R^2$ value `0.7` seems high enough but by removing coefficients the model can be simplified. The `p-values` represent the probability of a coefficient being zero, so only keep the coefficients with relative low `p-values`.
+
+```{r}
+# use only the predictors that show a low probability of being zero
+better_model <- lm(Crime ~ M + Ed + U2 + Ineq + Prob, uscrime) 
+summary(better_model)
+
+```
+
+
+With this result the $R^2$ metric has lowered to `0.2`, maybe if instead of using a `0.05` threshold for the p-values it is used a `0.1` threshold, the $R^2$ gets better.
+
+
+```{r}
+better_model_2 <- lm(Crime ~ M + Ed + U2 +Po1+ Ineq + Prob, uscrime) 
+summary(better_model_2)
+```
+
+With this change the $R^2$ value has risen to `0.73`, so the threshold of the p-value can have significant relevance over the model quality.
+
+The $R^2$ value is not the unique measure for a linear regression model, let's try Dr. Sokol lectures and apply `Akaike’s information criterion - AIC and the Bayesian information criterion - BIC`
+
+```{r}
+# model 1
+AIC(model)
+BIC(model)
+
+# model 2
+AIC(better_model)
+BIC(better_model)
+
+# model 3
+AIC(better_model_2)
+BIC(better_model_2)
+
+# The lower AIC/BIC is the best one, so better_model_2 is the best
+```
+
+
+Now let's try to predict, with the given data.
+
+```{r}
+data_point <-data.frame(M = 14.0,So = 0, Ed = 10.0, Po1 = 12.0, Po2 = 15.5,LF = 0.640, M.F = 94.0, Pop = 150, NW = 1.1, U1 = 0.120, U2 = 3.6, Wealth = 3200, Ineq = 20.1, Prob = 0.040,Time = 39.0)
+```
+

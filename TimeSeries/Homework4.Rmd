@@ -68,10 +68,11 @@ plot(result4$fitted)
 First I converted the data to a times series data because the model needs it in that special format. Then applied different versions HoltWinters to apply the exponential smoothing.
 Here $\alpha$ (alpha) is the smoothing coefficient for the level, $\beta$ (beta) is the smoothing coefficient for the trend and $\gamma$ (gamma) is the smoothing coefficient for the seasonal component.
 
-According to the graphs, we don't have enough evidence to assume that the unofficial end of summer hast gotten later over the years. The trends have basically stayed the same.
+According to the graphs, we don't have enough evidence to assume that the unofficial end of summer hast gotten later over the years. In the result of HoltWinters, there is no trend detected and that's why the trend line is flat and the level line looks constant through the time.
 
 To validate this statement, now it will be applied the CUSUM model to test the seasonal factors of the fitted model.
 
+See below the discussion on which HoltWinters model I choose.
 ```{r}
 options(warn=-1)
 # now apply CUSUM
@@ -103,6 +104,7 @@ year_result <- c(0)
 start <- 1
 finish <- 123
 current <- 0
+# the first year is 1998
 for (j in 1:18) {
   begin <- start + current
   end   <- finish + current
@@ -117,7 +119,7 @@ day_change <- mean(year_result)
 print (day_change)
 print (paste('The day which the summer ends for the avg year is: ',temps$DAY[day_change]))
 plot(year_result, main = 'Day of summer change each year', xlab = 'Year', ylab =
-'day',at=1:19, labels=as.vector(c(1996:2014)))
+'day',at=1:19, labels=as.vector(c(1997:2015)))
 lines(year_result)
 
 
@@ -125,17 +127,31 @@ lines(year_result)
 july <- result4$fitted[,4][1:31]
 current_year <- result4$fitted[,4][124:246]
 individual_result <- cusum(july,current_year, 1,8)
-plot(individual_result$s, main = 'Example CUSUM for 1997', xlab = 'Day', ylab ='s_t', col = ifelse(individual_result$s > individual_result$t,'blue','black'))
+plot(individual_result$s, main = 'Example CUSUM for 1998', xlab = 'Day', ylab ='s_t', col = ifelse(individual_result$s > individual_result$t,'blue','black'))
 legend('topleft',legend = c('C: ',individual_result$c,'T:',individual_result$t))
 # the blue points are the ones that have s_t[i] > T
 ```
 
 ## Continue Analysis 7.2
 
-For this part I used the seasonal model made by the smoothing exponential model to test if the summer ending day has changed through the years in atlanta.
+For this part I used the seasonal model made by the smoothing exponential model to test if the summer ending day has changed through the years in Atlanta. Seasonality can be additive or mutiplicative. The difference between thes is that the additive represents a linear behaivor where changes over time are consistently made by the same amount, like a linear trend. On the other hand, the multiplicative can be exponential or quadratic an is represented by a curve. For this case, the best seasonality is the multiplicative because it can't be assured that the temperature changes would be constant through the 20 years of data.
+
+The multiplicative curve is represented by the curve `y(t) = Level * Trend * Seasonality * Noise`. The result of this model won't include the first year (1996) because the model needs a complete season's data to determine initial estimates.
 
 To correctly test the cusum model it was important to divide the data for each 123 data points, because here the data is not divided by years so it had to be divided manually to test each year. For the $\mu$ (expected value) for the cusum model I used only July because it is expected that the summer won't finish in that month.
 
 The resulting plot says that the summer is ending on `9-sept` on average. The plot with the average ending summer for each year shows a significant decrease in the `2004-2005` period. That means that the summer is ending earlier after that period but then it starts to normalize after the year `2008`. Also like homework 3, the result is sensible to the C and T values.
 
 I would say there is no strong evidence to conclude without a doubt that the summer is ending later. To have strong evidence more years should be analyzed to see what actually the trend is.
+
+To conclude, here I wrote some tests changing the C and T of the cusum
+
+```{r}
+
+matrix <- cbind(c(1,1,2,2,4,1), c(2,5,10, 15, 20, 40), c('5-Aug', '27-Aug', '1-Oct', '7-Oct', '4-Oct', '4-Oct'))
+colnames(matrix) <- c("C", "T", "Date")
+library(knitr) # table library
+table <- kable(matrix)
+print (table)
+```
+
