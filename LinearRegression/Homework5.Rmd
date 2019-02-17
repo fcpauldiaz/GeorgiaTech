@@ -5,6 +5,7 @@ date: "08/02/2019"
 output:
   pdf_document:
     toc: true
+    toc_depth: 3
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Question 8.1
 
-I work in analytics in a telephone company and the linear regression is a easy model to use in a production environment and easy to understand, so we use it regularly. For this example, I have a nice example. In our telephone company, the prepaid users are the majority of users and they make the most of the revenue of the company. The prepaid users are the ones without a contract and they recharge their phone voice plans or data plans according to their needs. So in this case we want to predict monthly sales of prepaid recharges using data from previous years. As possible predictors we can use the following ones:
+I work in analytics in a telephone company and the linear regression is a easy model to use in a production environment and easy to understand, so we use it regularly. For this question, I have a nice example. In our telephone company, the prepaid users are the majority of users and they make the most of the revenue of the company. The prepaid users are the ones without a contract and they recharge their phone voice plans or data plans according to their needs. So in this case we want to predict monthly sales of prepaid recharges using data from previous years. As possible predictors we can use the following ones:
 
 1. The monthly recharges of voice plans (minutes).
 2. The monthly recharges of data plans (GB).
@@ -136,12 +137,57 @@ confint(better_model_2)
 # Adjusted R squared
 summary(better_model_2)$adj.r.squared
 # Residual Standard Error (RSE)
-sigma(better_model_2)/mean(uscrime$Crime)
+RSE <- sigma(better_model_2)
+RSE
+error_rate <- RSE/avg
 ```
+
+The quality of a linear regression fit is typically assessed using two quantities: the residual standard error (RSE) and the $R^2$.
 
 The $R^2$ can be interpreted as `73%` of the variance in the measure of crime can be predicted by M, Ed, Po1, U2, Ineq and Prob.
 
-The RSE can be interpreted as `23%` errror rate of the model (The less is better)
+The RSE/mean can be interpreted as `23%` errror rate of the model (The less is better)
 
 The `1%` threshold chosen for the p-values means that each coefficient will have `1%` of chance of not being significant.
+ 
+### Cross Validation
 
+Since the data set only has 47 points, it is highly probably that the reported quality of the model is overfitted so let's do cross validation to have a more realistic quality.
+
+```{r}
+# TA suggestion
+library(DAAG)
+# m is the number of folds. The m value was chosen arbitrarily
+cross_lm <- cv.lm(uscrime,better_model_2,m=10)
+
+# measure quality by calculating R^2 and RSE
+#R^2 = 1 - RSE/TSS
+
+```
+
+$R^2 = (TSS-RSS)/TSS = 1 - RSS/TSS$
+$RSE = \sqrt{\frac{1}{n-2} RSS}$
+
+Where TSS is the total sum of squares.  $\sum_{i=1}^n ({y_i}-\bar{y})^2$
+and RSS is the residual sum of squares. $\sum_{i=1}^n ({y_i}-\hat{y})^2$
+
+```{r}
+RSS <- attr(cross_lm,"ms")*nrow(uscrime)
+TSS <- sum((uscrime$Crime - mean(uscrime$Crime))^2)
+R_square <- 1 - RSS/TSS
+R_square
+RSE <- sqrt((1/(nrow(uscrime)-2))*RSS)
+RSE
+error_rate <- RSE/avg
+error_rate
+```
+
+### Regression output CV
+
+Now with cross-validation we have a more realistic fit of the model selected
+
+The $R^2$ can be interpreted as `65%` of the variance in the measure of crime can be predicted by M, Ed, Po1, U2, Ineq and Prob. Here we have the not overfitted quality, and according to Dr. Sokol, it is still good enough to use it.
+
+The RSE/mean can be interpreted as `26%` errror rate of the model (The less is better). This measure only changed `3%`.
+
+Also tested cv with multiple `m` folds and the results varied 1%, so it was not sensible to m.
