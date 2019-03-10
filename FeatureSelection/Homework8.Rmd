@@ -1,0 +1,126 @@
+---
+title: "Homework8"
+author: "Pablo Diaz"
+date: "3/6/2019"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 11.1
+
+build a regression model using:
+1. Stepwise regression
+2. Lasso
+3. Elastic net
+
+## Stepwise Regression
+
+```{r}
+set.seed(42)
+library(caret)
+library(MASS)
+library(glmnet)
+uscrime <- read.delim("~/Documents/R/GeorgiaTech/DataPreparation/uscrime.txt")
+# AIC uses forward and backward
+# first start with all predictors
+full.model <- lm(Crime ~., data = uscrime)
+# R^2 = 0.71, RSE = 209.1
+summary(full.model)
+# now apply Stepwise in both directions
+step.model <- stepAIC(full.model, direction = "both", trace = FALSE)
+# R^2 = 0.744 with 8 predictors and RSE = 195.5
+summary(step.model)
+
+# now we can remove the predictors with p-values higher than 0.5
+# remove M.F and U1. 
+step.model_pruned <- lm(Crime ~ M + Ed + Po1 + U2+ Ineq + Prob, data = uscrime)
+# R^2 = 0.74
+summary(step.model_pruned)
+
+# now apply cv
+train.control <- trainControl(method = "cv", number = 10)
+step.model_pruned <- train(Crime ~ M + Ed + Po1 + U2+ Ineq + Prob, data = uscrime,
+                    method = "lmStepAIC", 
+                    trControl = train.control,
+                    trace = FALSE
+                    )
+# Model accuracy
+step.model_pruned$results
+# Final model coefficients
+step.model_pruned$finalModel
+# Summary of the model
+summary(step.model_pruned$finalModel)
+
+```
+
+### Discussion Stepwise 
+
+stepAIC chooses the best model by AIC. It has an option named direction, which can take the following values: i) “both” (for stepwise regression, both forward and backward selection); “backward” (for backward selection) and “forward” (for forward selection). It return the best final model.
+
+In this case forward selection means adding predictors starting from 1 predictor and backwards selection means removing predictor by predictor starting from all available predictors in the linear regression. Stepwise uses the combination of this two techinques.
+
+In this problem I started with all predictors with a reported adjusted $R^2$ = 0.71. Then with StepAIC applied the reported adjusted $R^2$ was 0.744. This is better than the previous model and uses fewer predictors (8).  Now use the p-values to eliminate the predictors with higher p-value 0.05. So remove predictor M.F and U1.
+
+This results in a final lm model with adjusted $R^2$ = 0.74. To report the final quality of the model apply cross-validation to the model, which results in a $R^2$ = 0.73
+
+The resulting regression is `y = 105M + 196.47Ed + 115Po1 + 89U2 + 67Ineq - 3801Prob`.
+
+## Lasso Regression
+
+```{r}
+# scale data
+uscrimeScaled = as.data.frame(scale(uscrime[,c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)]))
+uscrimeScaled <- cbind(uscrimeScaled, uscrime[,16]) # add column response
+colnames(uscrimeScaled)[16] <- "Crime"
+
+# use the cv glmnet
+cv.lasso=cv.glmnet(x=as.matrix(uscrimeScaled[,-16]),y=as.matrix(uscrimeScaled$Crime),alpha = 1, nfolds = 10, type.measure="mse",family="gaussian")
+plot(cv.lasso)
+
+cv.lasso$lambda.min
+
+
+# display coefficients
+
+coef(cv.lasso, s=cv.lasso$lambda.min)
+
+model <- lm(Crime ~M+Po1+M.F+Ineq+Prob, data = uscrimeScaled)
+summary(model)
+# reported R^2 = 0.67
+```
+### Discussion
+
+The plot displays the cross-validation error according to the log of lambda. The left dashed vertical line indicates that the log of the optimal value of lambda is approximately -5, which is the one that minimizes the prediction error. This lambda value will give the most accurate model. The chosen lambda for this problem was 2.7562
+
+This model quality was adjusted $R^2$ = 0.67. Which es less than the first problem but it also uses less predictors (simpler model) and the difference of quality is not big.
+
+## Elastic Net
+
+```{r}
+acum <- c()
+for (i in seq(0.1,1,0.1)) {
+# use the cv glmnet and test multiple alpha
+  elastic.net=cv.glmnet(x=as.matrix(uscrimeScaled[,-16]),y=as.matrix(uscrimeScaled$Crime),alpha = i, nfolds = 10, type.measure="mse",family="gaussian")
+  acum = cbind(acum,elastic.net$glmnet.fit$dev.ratio[which(elastic.net$glmnet.fit$lambda == elastic.net$lambda.min)])
+
+}
+alpha = (which.max(acum)-1)/10
+plot(elastic.net)
+
+
+elastic.net$lambda.min
+coef(elastic.net, s=elastic.net$lambda.min)
+model <- lm(Crime ~M+So+Po1+Po2+LF+M.F+NW+U1+U2+Ineq+Prob, data = uscrimeScaled)
+summary(model)
+# remove by p-values
+model <- lm(Crime ~M + Ed + Po1 + U2+ Ineq + Prob, data = uscrimeScaled)
+summary(model)
+```
+### Discussion
+The alpha parameter for the elastic net is between 0 and 1. To find the best alpha in this model, it is necessary to iterate through some possible alpha values, from 0.10 to 1 in steps of 0.10. So after this is accomplished, the predictors are discarded by coeficients and after that the p-values are used to leave only the most relevant predictors. The reportes $R^2$ of this model was 0.73. The same as the first one. And it also uses the same predictors.

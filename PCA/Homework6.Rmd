@@ -1,0 +1,71 @@
+---
+title: "Homework6"
+author: "Pablo Diaz"
+date: "2/19/2019"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 9.1
+
+Using the same crime data set uscrime.txt as in Question 8.2, apply Principal Component Analysis and then create a regression model using the first few principal components. Specify your new model in terms of the original variables (not the principal components), and compare its quality to that of your solution to Question 8.2. You can use the R function prcomp for PCA. (Note that to first scale the data, you can include scale. = TRUE to scale as part of the PCA function. Don’t forget that, to make a prediction for the new city, you’ll need to unscale the coefficients (i.e., do the scaling calculation in reverse)!)
+
+
+```{r}
+set.seed(42)
+# import data
+uscrime <- read.delim("~/Documents/R/GeorgiaTech/DataPreparation/uscrime.txt")
+#The TA suggested this graph
+
+library(GGally)
+# TA suggsted this predictos
+ggpairs(uscrime, columns = c("Po1", "Po2", "U1", "U2", "Ineq", "Crime"))
+# here we can see that Po1 and Po2 are highly correlated between them and there seems to be some correlation with Crime. The other ones don't show signs of strong correlation.
+
+# apply the PCA model 
+pca <- prcomp(uscrime[,1:15], scale = TRUE)
+summary(pca)
+
+# the summary of PCA is for each predictor of the original data set
+# in the summary we can say that more than 85% of the variance can be explanied with  the first 5 principal components
+
+# this graph helps to choose how many PCA to use.
+# the prcomp, will show the best ones at first.
+screeplot(pca, type="lines",col="blue")
+# according to the grapg 5 components should be enough
+
+#obtain the 5 principal components from result matrix
+principal_components <- pca$x[,1:5]
+# now create a new matrix whith components and crime response
+matrix_crime <- cbind(principal_components, uscrime[,15]) 
+model <- lm(V6~., data = as.data.frame(matrix_crime)) 
+summary(model)
+# I don't quite understand how to unscale the data
+transformed_coeff <- pca$rotation[,1:5] %*% model$coefficients[2:6]
+# This homework is taking me too much time
+# I will leave this homework unfinished, so I can prepare for the first quizz
+```
+
+## Result
+The goal of Principal Component Analysis is a tool to extract the features of data that is used that to reduce a large set of variables to a small set that still contains most of the information in the large set. Basically, PCA removes correlation of predictos and ranks the coordinate dimensions according to the variability.
+
+The steps of this homework is to run the PCA model (the ggpairs can show an which predictors are the most correlated), extract the relevant components that describe most of the data (this can be done using screeplot and the pca shows the components in order), use the scaled rotation matrix from the result and uscale it to build a linear regression model. Calculate the city's crime using the data from last homework and measure its $R^2$ and adjusted $R^2$ to compare the quality of the model (other factors can be used to see the quality of the model). 
+
+ 
+To scale the data this is used $a'_j = (a_j - mu_j)/sigma_j$
+To unscale the data this should be used $a_j = a'_j * sigma_j + mu_j$ where j = 1, ..., 15
+
+
+The result should almost or the same as the past homework. The idea is to see that the same result can be achived using less predictors. I don't have the time to finish the math matrix part. Cross validation can also be applied to measure a more realistic quality of the lm and also according to the TA the binary column of the data set should be removed because pca doesn't work well with binary data.
+
+The follwing way could be used to remove the binary data
+`pca <- prcomp(cbind(uscrime[,1],data[3:15]),scale=TRUE) `
+ and to then build the lm with all the columns 
+ `crime_data_with_all_columns <- cbind(uscrime[,2],pca2$x[,1:5],uscrime[,15])`
+

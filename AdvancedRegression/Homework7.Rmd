@@ -1,0 +1,266 @@
+---
+title: "Homework7"
+author: "Pablo"
+date: "08/02/2019"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 10.1
+
+Using the same crime data set uscrime.txt as in Questions 8.2 and 9.1, find the best model you can
+using
+(a) a regression tree model, and
+(b) a random forest model
+
+```{r}
+set.seed(42) #set the seed
+# import data
+uscrime <- read.delim("~/Documents/R/GeorgiaTech/AdvancedRegression/uscrime.txt")
+library(rpart)
+model_tree <- rpart(Crime~., uscrime)
+summary(model_tree)
+# plot
+plot(model_tree, margin=0.2, uniform = TRUE)
+text(model_tree,cex=0.55)
+# the plot shows that only 3 predictors were used to construct the regression tree
+
+# test predicting the same data with the model
+y_predicted <- predict(model_tree)
+# calculate square error
+RSS <- sum((y_predicted-uscrime$Crime)^2)
+
+# measure quality by calculating R^2 and RSE
+TSS <- sum((uscrime$Crime - mean(uscrime$Crime))^2)
+R <- 1 - RSS/TSS
+R
+# Residual Standard Error (RSE)
+RSE <- sqrt((1/(nrow(uscrime)-2))*RSS)
+error_rate <- RSE/mean(uscrime$Crime)
+error_rate
+
+# try to prune the tree
+
+# use the rpart.control to modify the rpart fit parameter
+# The complexity parameter (cp) in rpart is the minimum improvement in the model needed at each node. 
+bestcp <- model_tree$cptable[which.min(model_tree$cptable[,"xerror"]),"CP"]
+model_tree.pruned <- prune(model_tree, cp = bestcp)
+
+# plot
+plot(model_tree.pruned,margin=0.2, uniform = TRUE)
+text(model_tree.pruned, cex=0.55)
+# the plot shows that only 3 predictors were used to construct the regression tree
+
+# test predicting the same data with the model
+y_predicted <- predict(model_tree.pruned)
+# calculate square error
+RSS <- sum((y_predicted-uscrime$Crime)^2)
+
+# measure quality by calculating R^2 and RSE
+TSS <- sum((uscrime$Crime - mean(uscrime$Crime))^2)
+R <- 1 - RSS/TSS
+R
+# Residual Standard Error (RSE)
+RSE <- sqrt((1/(nrow(uscrime)-2))*RSS)
+error_rate <- RSE/mean(uscrime$Crime)
+error_rate
+
+# I found out that this package can show the Cross Validated results
+plotcp(model_tree)
+printcp(model_tree)
+```
+
+## 10.1 a) Analysis
+
+First I chose to use the rpart package to test the regression tree. This model shows the usage of three variables: `Pop`, `NW` and `Po1`. 
+
+The quality of a linear regression fit is typically assessed using two quantities: the residual standard error (RSE) and the $R^2$.
+
+The resulting $R^2$ is `0.562` and the RSE/mean can be interpreted as `28%` errror rate of the model (The less is better). This is not the best model and now it is time to analyze why.
+
+I tried to prune the tree but I actually got a worse model and it only used one variable, so for this model it is not a good idea to use the pruned version. This is mainly because the data set has too few data points.
+
+# Question 10.1 b)
+
+Now construct a random forest
+
+```{r}
+library(randomForest)
+
+random_forest <- randomForest(Crime~., data = uscrime,importance = TRUE)
+random_forest
+
+# mtry = Number of variables randomly sampled as candidates at each split
+# after some test, the mtry had higher variance explanied
+random_forest <- randomForest(Crime~., data = uscrime,importance = TRUE, mtry = 3)
+random_forest
+
+y_predicted <- predict(random_forest)
+RSS <- sum((y_predicted-uscrime$Crime)^2)
+TSS <- sum((uscrime$Crime - mean(uscrime$Crime))^2)
+R <- 1 - RSS/TSS
+R
+# Residual Standard Error (RSE)
+RSE <- sqrt((1/(nrow(uscrime)-2))*RSS)
+error_rate <- RSE/mean(uscrime$Crime)
+error_rate
+```
+
+## Analysis 10.1 b)
+
+This a pretty straight forward model, the model chooses n random trees to fit the model and for each one it chooses random predictors to build them and to predict it uses the average response from all of them. It is harded to analyze because we can't graph all of the trees (500 for default) Although it is possible to see which are the most important variables like this
+
+```{r}
+importance(random_forest)
+varImpPlot(random_forest)
+```
+
+The top 3 predictors are Po1, Po2 and NW. Almost the same ones that the regression tree used. One benefit of this model is that the over fitting is removed, so there is no need to do cv.
+
+The resulting $R^2$ is `0.4382399` and the RSE/mean can be interpreted as `32%` errror rate of the model (The less is better). The quality of this model is worse than the regression tree because it is not over-fitted.
+
+
+# Question 10.2
+
+A logistic regression could be used on Tesla cars, so they can measure the probability of crashing to an object. The predictors that could be used are
+
+1. The speed of the car (mph).
+2. The distance of the object (mi).
+3. The speed of the object (mph).
+4. The weather condition (temp).
+5. The condition of the tires (miles used).
+
+# Question 10.3
+
+```{r}
+library(caTools)
+
+germancredit <- read.table("~/Documents/R/GeorgiaTech/AdvancedRegression/germancredit.txt", quote="\"", comment.char="")
+
+# convert response variable to 0 and 1
+germancredit$V21[germancredit$V21==1]<-0
+germancredit$V21[germancredit$V21==2]<-1
+
+# split data 70% training and 30% test
+sample = sample.split(germancredit, SplitRatio = 0.70)
+train = subset(germancredit, sample == TRUE)
+test  = subset(germancredit, sample == FALSE)
+
+model <- glm(V21 ~.,family=binomial(link = "logit"),data=train)
+# AIC = 680
+summary(model)
+
+# before removing the predictors with higher p-value than 5%, first
+# we need to categorize the columns with categorical values.
+# now remove predictors with p-values above 5%
+
+
+model <- glm(V21~V1+V2+V3+V4+V5+V6+V8+V9+V10+V14+V20,family=binomial(link = "logit"),data=train)
+# AIC 673 ç8lower better)
+summary(model)
+
+predicted_y<-predict(model,test,type = "response")
+predicted_y
+
+predicted_round <- round(predicted_y)
+
+confusion_matrix <- as.matrix(table(predicted_round,test$V21))
+confusion_matrix
+
+# accuracy
+accuracy <- (confusion_matrix[1,1] + confusion_matrix[2,2]) / sum(confusion_matrix)
+accuracy
+
+# sensitivity
+sensitivity <- (confusion_matrix[1,1]) / (confusion_matrix[1,1] + confusion_matrix[2,1])
+sensitivity
+
+# specificity
+specificity <-  (confusion_matrix[2,2]) / (confusion_matrix[2,2] + confusion_matrix[2,1])
+specificity
+
+```
+
+## Analysis 10.3
+
+For this a logistic regression, there can be multiple aproaches. For example, the categorical predictors could be converted to 1 and 0 (although I didn't do it here). I first used all the predictors to construct the model and then I only used the predictors that had p-values under 5% threshold. Then I started to measure the quality of the model. Remember that here there is not a pure R^2 that will show the quality easily, but there are other methods to measure it. To have a general idea of the model, I confusion matrix can be constructed with the rounded values (this is because the response is 0 or 1) and the test set.
+
+The accuracy is the measure by adding True Positives + True Negatives/sum(all_data). The reported accuracy is ´0.75´
+The specificity can be measured by True Positive/TN + FP. The accuracy measures the fraction of category of members correctly classified. The reported specificity is `0.87`
+The sensitivity can be measure by TP/FN+TN. This measures the non category members correctly classified. The sensitivity is `0.64`;
+
+Receiver Operating Characteristic(ROC) summarizes the model’s performance by evaluating the trade offs between true positive rate (sensitivity) and false positive rate(1- specificity). For plotting ROC, it is advisable to assume p > 0.5 since we are more concerned about success rate. ROC summarizes the predictive power for all possible values of p > 0.5.  The area under curve (AUC), referred to as index of accuracy(A) or concordance index, is a perfect performance metric for ROC curve. Higher the area under curve, better the prediction power of the model. 
+
+```{r}
+library(ROCR)
+ROCRpred <- prediction(predicted_y, test$V21)
+ROCRperf <- performance(ROCRpred, 'tpr','fpr')
+plot(ROCRperf, colorize = TRUE)
+```
+
+Now measure the cost
+
+```{r}
+cost <- c()
+# test threshold from 1% to 100%
+for(i in seq(0.01,1,0.01))
+{
+  # threshold calculation
+  y_round <- as.integer(predicted_y > i) 
+  # V21 is wheter the credit is given or not (0, 1)
+  confusion <-as.matrix(table(y_round,test$V21))
+  cost_fn <- 0
+  cost_fp <- 0 
+  if (nrow(confusion) > 1) {
+    cost_fn <- confusion[2,1]
+  }
+  if (ncol(confusion) > 1) { 
+    cost_fp <- confusion[1,2] 
+  }
+  # save cost result
+  # the cost of a false positive is 5 times worse than a false negative.
+  cost <- c(cost, cost_fp*5 + cost_fn)
+}
+
+plot(seq(0.01,1,0.01),cost,main = "cost vs threshold")
+
+# this will give the index
+which.min(cost)
+
+# the threshold is the following one
+which.min(cost)*0.01
+
+min(cost)
+
+```
+
+
+Here it is necessary to iterate through all the possible thresholds from 1% to 100% to choose between 0 and 1. To calculate the cost of the misclassification it is only needed to use the false positive and false negative from the confusion matrix because the other ones measure the correct classification. So in each iteration a new confusion matrix is constructed using the threshold i in the loop. Then the FP and FN are used from the confusion matrix and the cost is calculated and ploted. The cost of a False Positive is 5 times higher than the cost of a False Negative because here we are dealing with credit scores, so it is better to not give credit/money to people with a "false" good score (FP).
+
+The min threshold probability to have low costs/loss is expected to be 0.08 and the cost asociated with this threshold is 167. There seems to be a range of threshold that can be tolerable form 0.01 to 0.2. If for example a threshold of 0.6 is used the cost is the following one.
+
+```{r}
+y_round <- as.integer(predicted_y > 0.6) 
+# V21 is wheter the credit is given or not (0, 1)
+confusion <-as.matrix(table(y_round,test$V21))
+cost_fn <- 0
+cost_fp <- 0 
+if (nrow(confusion) > 1) {
+  cost_fn <- confusion[2,1]
+}
+if (ncol(confusion) > 1) { 
+  cost_fp <- confusion[1,2] 
+}
+# save cost result
+# the cost of a false positive is 5 times worse than a false negative.
+cost <-  cost_fp*5 + cost_fn
+cost
+```
+
+The cost would be 364, more than the double of the previous threshold. This could be millions of dollars of cost. So it can be concluded that it can be costly to choose a random or bad threshold.

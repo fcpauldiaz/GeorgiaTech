@@ -1,0 +1,245 @@
+# -*- coding: utf-8 -*-
+# Georgia Tech
+# 10/03/2019
+# airport simulation
+
+from SimPy.Simulation import *
+from random import uniform, expovariate, Random,seed
+from math import *
+
+
+class AirPort(Process):
+    def __init__(self,id):
+        Process.__init__(self)
+        self.id=id  # identify passenger
+
+    def run(self,resourceBoard,resourceScan, arrivalRate, rate, wt1, wt2, wt3):
+        self.arrive = now()
+        yield request,self,resourceBoard #busca un espacio, si no hay debe hacer cola (depende de la capacidad)
+        self.beginScan = now()
+        #print "%5.1f %s attending for board checker" %(now(),self.id) 
+        # exponential boarding pass check time
+        yield hold,self,expovariate(1.0 / rate) # check rate
+        #print "%5.1f %s waiting" %(now(),self.id) 
+        yield release,self,resourceBoard #liberate resource
+        checkTime = now() - self.beginScan #attend passenger
+        wt1.observe(checkTime)
+        #print "%5.1f %s liberate board checker %5.1f, total time=%5.1f" %(now(),self.id,rate,checkTime)
+        #------
+        #print "%s scan checker" %(self.id)
+        yield request,self, resourceScan # finds a resource, if busy must wait
+        self.scanStart = now()
+        #print "%5.1f %s attending scan checker" %(now(),self.id) 
+        #uniform scan check time
+        yield hold,self, uniform(0.5, 1.0) #attend passenger
+        yield release,self,resourceScan #liberate resource
+        scanTime = now() - self.scanStart
+        #print "%5.1f %s liberate board checker %5.1f, total time=%5.1f" %(now(),self.id,rate,scanTime)
+        wt2.observe(scanTime)
+        wt3.observe(now() - self.arrive)
+
+
+class Source(Process):
+    """ Source generates passengers randomly"""
+
+    def generatePassanger(self, arrivalRate, resourceBoard, resourceScan, monitorCheck, monitorScan,allMonitor, checkerRate):
+        i = 0
+        while True: # wait for runTime
+            cp = AirPort(id="passenger: " + str(i+1)+ " ")
+            #print "%s arrived" %(cp.id)
+            yield hold,self, expovariate(arrivalRate)  # a new passanger arrives
+            activate(cp,cp.run(
+                resourceBoard=resourceBoard,
+                resourceScan=resourceScan,
+                arrivalRate = arrivalRate, 
+                rate=checkerRate,
+                wt1=monitorCheck,
+                wt2=monitorScan, 
+                wt3=allMonitor)
+            )
+            #activate(cp,cp.runScanCheck(resource=resourceScan,rate=scan_time,  wt=monitorScan))
+            
+            i += 1
+
+#---------------------------Test  1------------------------
+
+meanCheckTime = []
+meanScanTime = []
+varScanTime = []
+meanWaitTime = []
+meanAllTime = []
+
+qtyBoardCheckers= 30 # board checkers constant (first step)
+qtyScanners = 30 # scanners constant (second step)
+
+boardCheckerRate = 0.75 # board rate per minute passanger
+arrivalRate = 50 # Passengers arrive according to a Poisson distribution with λ1 = 5 per minute
+iterations = 10
+runTime = 800
+wt1 = Monitor()
+wt2 = Monitor()
+wt3 = Monitor()
+
+def model(runSeed, runTime, qtyBoardCheckers, qtyScanners):
+    seed(runSeed)
+    BoardCheckerResource = Resource(capacity=qtyBoardCheckers,qType=FIFO) 
+    ScanResource = Resource(capacity=qtyBoardCheckers,qType=FIFO) 
+    initialize()
+    s = Source('Source')
+    activate(s, s.generatePassanger(
+        arrivalRate=arrivalRate, 
+        resourceBoard=BoardCheckerResource,
+        resourceScan=ScanResource,
+        monitorCheck=wt1,
+        monitorScan=wt2,
+        allMonitor=wt3,
+        checkerRate=boardCheckerRate)
+    )
+    simulate(until=runTime)
+    return wt1.mean(),sqrt(wt1.var()), wt2.mean(), sqrt(wt2.var()), wt3.mean()
+
+
+for i in range(iterations):
+    sd = i
+    result = model(sd, runTime, qtyBoardCheckers, qtyScanners)
+    meanCheckTime.append(result[0])
+    meanScanTime.append(result[2])
+    meanAllTime.append(result[4])
+    meanWaitTime.append(meanAllTime[i] - meanCheckTime[i] - meanScanTime[i])
+
+    #varScanTime.append(var_board)
+    #print("Tiempo de espera medio %6.2f unidades de tiempo con desviación estándar de %3d" % result)
+print
+print "----------------Results #1:  30 checker and 30 scanner--------------------"
+print 'mean all time: '  + str(sum(meanAllTime)/iterations)
+print 'mean check time: '  + str(sum(meanCheckTime)/iterations)
+print 'mean scan time: '  + str(sum(meanScanTime)/iterations)
+print 'mean wait time: '  + str(sum(meanWaitTime)/iterations)
+
+
+# ----------- Test 2 ------------------
+
+meanCheckTime = []
+meanScanTime = []
+varScanTime = []
+meanWaitTime = []
+meanAllTime = []
+
+qtyBoardCheckers=35 # board checkers constant (first step)
+qtyScanners = 35  # scanners constant (second step)
+
+wt1 = Monitor()
+wt2 = Monitor()
+wt3 = Monitor()
+
+
+for i in range(iterations):
+    sd = i
+    result = model(sd, runTime, qtyBoardCheckers, qtyScanners)
+    meanCheckTime.append(result[0])
+    meanScanTime.append(result[2])
+    meanAllTime.append(result[4])
+    meanWaitTime.append(meanAllTime[i] - meanCheckTime[i] - meanScanTime[i])
+
+    #varScanTime.append(var_board)
+    #print("Tiempo de espera medio %6.2f unidades de tiempo con desviación estándar de %3d" % result)
+print
+print "----------------Results# 2:  35 checker and 35 scanner--------------------"
+print 'mean all time: '  + str(sum(meanAllTime)/iterations)
+print 'mean check time: '  + str(sum(meanCheckTime)/iterations)
+print 'mean scan time: '  + str(sum(meanScanTime)/iterations)
+print 'mean wait time: '  + str(sum(meanWaitTime)/iterations)
+
+
+# ----------- Test 3 ------------------
+
+meanCheckTime = []
+meanScanTime = []
+varScanTime = []
+meanWaitTime = []
+meanAllTime = []
+
+qtyBoardCheckers = 38 # board checkers constant (first step)
+qtyScanners = 38 # scanners constant (second step)
+
+wt1 = Monitor()
+wt2 = Monitor()
+wt3 = Monitor()
+
+
+for i in range(iterations):
+    sd = i
+    result = model(sd, runTime, qtyBoardCheckers, qtyScanners)
+    meanCheckTime.append(result[0])
+    meanScanTime.append(result[2])
+    meanAllTime.append(result[4])
+    meanWaitTime.append(meanAllTime[i] - meanCheckTime[i] - meanScanTime[i])
+
+    #varScanTime.append(var_board)
+    #print("Tiempo de espera medio %6.2f unidades de tiempo con desviación estándar de %3d" % result)
+print
+print "----------------Results # 3:  38 checker and 38 scanner--------------------"
+print 'mean all time: '  + str(sum(meanAllTime)/iterations)
+print 'mean check time: '  + str(sum(meanCheckTime)/iterations)
+print 'mean scan time: '  + str(sum(meanScanTime)/iterations)
+print 'mean wait time: '  + str(sum(meanWaitTime)/iterations)
+
+## TEST 4
+meanCheckTime = []
+meanScanTime = []
+varScanTime = []
+meanWaitTime = []
+meanAllTime = []
+
+qtyBoardCheckers = 40 # board checkers constant (first step)
+qtyScanners = 40 # scanners constant (second step)
+
+
+
+for i in range(iterations):
+    sd = i
+    result = model(sd, runTime, qtyBoardCheckers, qtyScanners)
+    meanCheckTime.append(result[0])
+    meanScanTime.append(result[2])
+    meanAllTime.append(result[4])
+    meanWaitTime.append(meanAllTime[i] - meanCheckTime[i] - meanScanTime[i])
+
+    #varScanTime.append(var_board)
+    #print("Tiempo de espera medio %6.2f unidades de tiempo con desviación estándar de %3d" % result)
+print
+print "----------------Results #4: 40 checker and 40 scanner--------------------"
+print 'mean all time: '  + str(sum(meanAllTime)/iterations)
+print 'mean check time: '  + str(sum(meanCheckTime)/iterations)
+print 'mean scan time: '  + str(sum(meanScanTime)/iterations)
+print 'mean wait time: '  + str(sum(meanWaitTime)/iterations)
+
+
+## TEST 5
+meanCheckTime = []
+meanScanTime = []
+varScanTime = []
+meanWaitTime = []
+meanAllTime = []
+
+qtyBoardCheckers = 45 # board checkers constant (first step)
+qtyScanners = 45 # scanners constant (second step)
+
+
+
+for i in range(iterations):
+    sd = i
+    result = model(sd, runTime, qtyBoardCheckers, qtyScanners)
+    meanCheckTime.append(result[0])
+    meanScanTime.append(result[2])
+    meanAllTime.append(result[4])
+    meanWaitTime.append(meanAllTime[i] - meanCheckTime[i] - meanScanTime[i])
+
+    #varScanTime.append(var_board)
+    #print("Tiempo de espera medio %6.2f unidades de tiempo con desviación estándar de %3d" % result)
+print
+print "----------------Results #5: 45 checker and 45 scanner--------------------"
+print 'mean all time: '  + str(sum(meanAllTime)/iterations)
+print 'mean check time: '  + str(sum(meanCheckTime)/iterations)
+print 'mean scan time: '  + str(sum(meanScanTime)/iterations)
+print 'mean wait time: '  + str(sum(meanWaitTime)/iterations)
+
