@@ -1,0 +1,163 @@
+---
+title: "Homework10"
+author: "Pablo"
+date: "3/18/2019"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 14.1
+
+1. Use the mean/mode imputation method to impute values for the missing data.
+2. Use regression to impute values for the missing data.
+3. Use regression with perturbation to impute values for the missing data
+
+## Mean/Mode
+```{r}
+set.seed(42)
+
+breast.cancer.wisconsin.data <- read.csv("~/Documents/R/GeorgiaTech/MissingData/breast-cancer-wisconsin.data.txt", header=FALSE)
+
+# search for missing data
+#View(breast.cancer.wisconsin.data)
+# column v7 seems to have ? string
+
+# find how much data is missing
+missing <- nrow(breast.cancer.wisconsin.data[which(breast.cancer.wisconsin.data$V7 == "?"),])/nrow(breast.cancer.wisconsin.data)
+missing*100
+
+# less than 5% (ok)
+
+# since the variable V7 of the data set is in range 1-10, 
+# it will be better to use the mode rather than the mean.
+
+missing_data <- which(breast.cancer.wisconsin.data$V7=="?", arr.ind = TRUE)
+
+mode <- function(x) {
+  ux <- unique(x)
+  return (as.numeric(ux[which.max(tabulate(match(x, ux)))]))
+}
+# remove missing data
+mode_data <-mode(breast.cancer.wisconsin.data[-missing_data,"V7"])
+
+#Now we will use this function to create a dummy variable 
+#that will indicate missing value using 0, otherwise willtake the value 1.
+addDummuy <- function(t)
+{
+  x <- dim(length(t)) 
+  x[which(t != "?")] = 1
+  x[which(t == "?")] = 0
+  return(x)
+}
+
+# do imputation, put mode in the data set.
+new_data <- breast.cancer.wisconsin.data
+new_data$dummy <- addDummuy(new_data$V7)
+for(i in 1:nrow(new_data))
+{
+  if(new_data$dummy[i] == 0)
+  {
+    new_data$V7[i] <- mode_data
+    
+  }
+}
+# validate after adding new data (should be 0)
+missing <- nrow(new_data[which(new_data$V7 == "?"),])/nrow(new_data)
+missing
+
+```
+
+
+## Regression
+
+```{r}
+# response is in first column
+data <- breast.cancer.wisconsin.data
+data_lm <- (breast.cancer.wisconsin.data[-missing_data,2:10])
+data_lm$V7 <- as.integer(data_lm$V7)
+model <- lm(V7~., data = data_lm)
+summary(model)
+
+# discard predictor by p - values > 0.1
+model2 <- lm(V7 ~ V2+V4+V5+V9, data = data_lm)
+summary(model2)
+
+# now that the model is built
+# use it to add the missing values to the data set.
+
+
+
+#Now we will use this function to create a dummy variable 
+#that will indicate missing value using 0, otherwise willtake the value 1.
+
+data$dummy <- addDummuy(data$V7)
+
+head(data)
+new_points <- c()
+for(i in 1:nrow(data))
+{
+  if(data$dummy[i] == 0)
+  {
+    # predict each value and save it as integer (no floats) in the missing i value
+    data_point = as.integer(predict(model2, newdata = data[i,2:9]))
+    data$V7[i] <- data_point
+    new_points <- c(new_points, data_point)
+    
+  }
+}
+missing <- nrow(data[which(data$V7 == "?"),])/nrow(data)
+
+# check that there is no missing data
+missing
+```
+
+
+## Regression with perturbation
+
+```{r}
+# will generate random numbers following normal distribution rnorm(n,mean,sd)
+random_distribution <- rnorm(nrow(new_data[missing_data,]),mean(new_points),sd(new_points))
+# this should have 16 data points
+random_distribution
+
+# before adding data points
+missing <- nrow(new_data[which(new_data$V7 == "?"),])/nrow(new_data)
+missing
+
+# now add data points
+j <- 1
+for (i in 1:nrow(data)) {
+  if(data$dummy[i] == 0) {
+    # add values from random distribution
+    new_point <- as.integer(random_distribution[j])
+    # validate range and force only valid values for this categorical variable
+    if (new_point < 1) new_point <- 1
+    if (new_point > 10) new_point <- 10
+    new_data$V7[i] <- new_point
+    j = j+1
+  }
+}
+
+# after adding data points
+missing <- nrow(new_data[which(new_data$V7 == "?"),])/nrow(new_data)
+missing
+
+```
+
+## Output
+
+
+
+Since I'm not doing the optional part (will start studing for midterm2) there is no much analysis I can make, but if I had made it there could be a comparison of quality of models between the methods of imputation. It is a long procedure because each model has to be imputated with the different methods, so I will look forward to the peer review.
+
+What I can comment on the imputation methods is that for the normal random distribution there can be values that are outside the allowed range. In this case the range for the V7 column is 1-10 (categorical) so in the last method I had to check the range before adding the new calculated data point.
+
+# 15.1
+
+For the soccer world cup, an optimization model could be made to find how many stadiums are needed to host all the games. The variables that can be used is the number of games per day, the number of teams playing, the number of available cities, the expected number of attendees per game, etc. The objective function is to minimze the number of needed stadiums and some possible constraints is more than (>0) stadiums are needed, less than (<1) per city and less than 100k attendees per game.
