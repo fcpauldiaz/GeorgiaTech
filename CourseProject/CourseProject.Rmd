@@ -1,0 +1,117 @@
+---
+title: "Course Project"
+author: "Pablo"
+date: "4/12/2019"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Project Case
+The article I chose for this project can be found in the following link [https://www.informs.org/Impact/O.R.-Analytics-Success-Stories/UPS-On-Road-Integrated-Optimization-and-Navigation-ORION-Project](https://www.informs.org/Impact/O.R.-Analytics-Success-Stories/UPS-On-Road-Integrated-Optimization-and-Navigation-ORION-Project).
+
+# UPS On-Road Integrated Optimization and Navigation (ORION) Project
+
+## Case Summary
+
+The UPS On-Road Integrated Optimization and Navigation (ORION) is revolutionizing the pickup and delivery (P&D) operations at UPS. More than 10 years in the making, ORION has become a critical component of UPS Small Package Operations. In its current phase, every morning ORION provides UPS drivers with an optimized sequence in which the (pre)assigned packages are delivered. As of December 2015, ORION is being used by more than 35,000 of 55,000 U.S. drivers. At full deployment in 2016, 55,000 UPS drivers will be relying upon ORION to serve an average of 160 customers per day. This project was named the winner of the 2016 Franz Edelman Award for Achievement in Operations Research and the Management Sciences.
+
+The number of possible routes a UPS driver can take on any day to make their deliveries is enormous. Optimizing the route for delivery, fuel, and time would save the company significant money. Unlike a traditional traveling salesman problem, finding the shortest route alone isn’t the answer.
+
+
+The traveling salesman problem has been known as a tough problem to solve since it was first discussed in the 19th century. Multiply it by the 55,000 routes, more than 100 stops on each, add in additional constraints like time commitments, and it goes beyond being tough to becoming seriously challenging. But, there’s a big payoff in solving tough problems, and that’s why UPS developed ORION (On-Road Integrated Optimization and Navigation). This award-winning predictive analytics route planning algorithm combines map data with package details and customer priorities to create efficient routes that save UPS significant money, keep customers happy, and make the planet a little greener, too.
+
+The Traveling Delivery Person Problem
+
+The number of possible routes a UPS driver can take on any day to make their deliveries is enormous. Optimizing the route for delivery, fuel, and time would save the company significant money. Unlike a traditional traveling salesman problem, finding the shortest route alone isn’t the answer.
+
+As Chuck Holland, VP of Industrial Engineering at UPS explained, “It was really quite a challenge because we have to balance multiple things.” The company usually delivers to commercial customers in the morning and residential customers in the afternoon, but there are many deliveries that don’t conform to those guidelines. Some next-day air packages need to be delivered by a certain time, and there are specific arrangements with certain customers for scheduled delivery times as well.
+
+“We have soft constraints and hard constraints both, and ORION takes all of those into consideration. It meets all business rules, all service commitments, while trying to have the minimum number of miles and the least cost to make that delivery for that day,”
+
+Saving just one mile per driver each day amounts to saving $50 million for UPS. Once ORION is fully deployed in the US, it’s expected to save UPS up to $400 million per year, and reduce greenhouse emissions by 100,000 metric tons every year.
+
+
+## Case Models
+
+This case can have different approaches that could be applied. The goal is to save at least 1 mile per worker each day, and that can have a big impact because of the volume each day that handles UPS. Another consideration is that the model has to keep using the most recent data to make predictions, and as the article said, only using the shortest path algorithm it just won't work so here it is what they could have done. So the following models that I propose should be run at least daily to update all the new information.
+
+
+### Model 1
+
+This model is to know which delivery points are near. So it is supposed that UPS can know the coordinates of each package that has to be delivered. Notice that this by itself is a big challenge because packages only have a print address so UPS has to map each address to a coordinate and that by itself could be a project or company.
+
+Since this a day to day operation I think that the model should be run each day because new information is available each day and it is relevant.
+
+1. Given:
+  a. It is known that each package has an address that can be divided into state, city, postal code of delivery.
+  b. It is known the priority of the package when it has to be delivered, some might have the same day delivery and some don't.
+  c. The approximate number of different locations a delivery truck have visited in the past.
+  
+2. Use: a Random Forest of Clustering models
+3. To: cluster the nearby packages to be delivered.
+
+This will help to group the packages and optimize the routes in the next steps.
+
+### Model 2
+
+Now that we have which packages are near we need to know who will get deliver them and when (classify them)
+
+1. Given:
+  a. The vehicle capacity (truck/airplane/other) in weight and size.
+  b. The cluster distance from where the package is going out (the warehouse). 
+  c. The vehicle availability (how many vehicles in one location).
+  d. The package priority (only deliver the packages that are needed to be delivered in that day.)
+2. Use: SVM.
+3. To: Classify to know from where the delivery will be getting out and when.
+
+### Model 3
+
+Now I think this is the hardest/unpredictable part. The optimization. I'm unaware of the business rules that UPS has so I will try to think about the possible constraints they have.
+
+1. Given: 
+  a. The clustering of the packages of each day (from the previous model).
+  b. The delivery method classification from the previous model.
+  c. The delivery time of each package (some premium delivery packages has exact time delivery schedules).
+  d. The distance of each package.
+  e. The possible routes for packages that a GIS can provide.
+  f. Other business rules of UPS.
+
+2. Use: an optimization model
+  Constraints: 
+    a. some packages will need a prioritization so the time should be taken into account depending on the distance.
+    b. More than 0 packages to deliver.
+    c. A maximum of distance to travel depending on the vehicle type.
+    d. a maximum of packages to deliver.
+    e. use the clusters that are near by a defined factor.
+    d. There are other operational constraints, like the human resources available or the functional vehicles at a certain time.
+  
+  Objective function: The goal is to minimize the distance traveled by each vehicle.
+
+To: find the optimal delivery strategy for each day
+
+### Model 4
+
+Another consideration to make is the seasonality, there are times when people buy more things and that will increase or decrease the rates of packages to be delivered, so UPS has to be ready for that.
+
+1. Given:
+    a. Use historical data of the number of deliveries done by the state, city for each day.
+    b. Use weather data. This could be historical or could be the predictions (the downside of predictions is that it has to be updated frequently)
+  
+2. Use: exponential smoothing to predict how many packages are going to be delivered each day 
+3. To: Take into account seasonality to know how many resources the company will need depending on the season.
+
+## Further Analysis
+
+There are some things I have not taken account for and other things that are suppositions because of the lack of information I have on the case. For example, I have not taken into account how a package gets to a warehouse/delivery center. That could be another optimization that could be made through a model. I have not taken into account the complexity of the models and its difficulty or not difficulty of being used in a production environment. For example, I read that the current ORION system still doesn't take into account the weather conditions and it still is pretty good reducing millions of dollars in cost. Another example is that today there are drones available to deliver packages, and they don't follow the regular routes. Remember that a simple optimization or upgrade has a big impact in this business due to its high volume, so maybe the models implemented doesn't need to be that complex.
+
+
+Using the combination of predictive, descriptive, and predictive analytical models (daily) creates a solution that UPS could use to meets its service time and delivery goals. 
+
+
+

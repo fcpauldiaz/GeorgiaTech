@@ -1,6 +1,6 @@
 ---
 title: "Homework3"
-author: "Pablo Diaz"
+author: ""
 date: "1/26/2019"
 output:
   pdf_document:
