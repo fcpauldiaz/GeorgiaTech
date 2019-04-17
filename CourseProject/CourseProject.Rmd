@@ -46,50 +46,62 @@ This case can have different approaches that could be applied. The goal is to sa
 
 This model is to know which delivery points are near. So it is supposed that UPS can know the coordinates of each package that has to be delivered. Notice that this by itself is a big challenge because packages only have a print address so UPS has to map each address to a coordinate and that by itself could be a project or company.
 
-Since this a day to day operation I think that the model should be run each day because new information is available each day and it is relevant.
+Since this a day to day operation I think that the model should be run each day and if possible in real-time because new information is available each minute and it is relevant to make decisions.
 
 1. Given:
-  a. It is known that each package has an address that can be divided into state, city, postal code of delivery.
-  b. It is known the priority of the package when it has to be delivered, some might have the same day delivery and some don't.
-  c. The approximate number of different locations a delivery truck have visited in the past.
+  * It is known that each package has an address that can be divided into state, city, postal code of delivery.
+  * It is known the priority of the package when it has to be delivered, some might have the same day delivery and some don't.
+  * The approximate number of different locations a delivery truck have visited in the past.
   
-2. Use: a Random Forest of Clustering models
-3. To: cluster the nearby packages to be delivered.
+2. Use: K-Nearest Neighbors
+
+3. To: group the nearby packages to be delivered.
 
 This will help to group the packages and optimize the routes in the next steps.
+
+(At first I though this could be a clustering model but the address/location is known so it just needs to be classifier model instead of a clustering one.)
 
 ### Model 2
 
 Now that we have which packages are near we need to know who will get deliver them and when (classify them)
 
 1. Given:
-  a. The vehicle capacity (truck/airplane/other) in weight and size.
-  b. The cluster distance from where the package is going out (the warehouse). 
-  c. The vehicle availability (how many vehicles in one location).
-  d. The package priority (only deliver the packages that are needed to be delivered in that day.)
+  * The vehicle capacity (truck/airplane/other) in weight and size.
+  * The cluster distance from where the package is going out (the warehouse). 
+  * The vehicle availability (how many vehicles in one location).
+  * The package priority (only deliver the packages that are needed to be delivered in that day.)
+  * The type of vehicle.
+  
 2. Use: SVM.
+
 3. To: Classify to know from where the delivery will be getting out and when.
 
 ### Model 3
 
 Now I think this is the hardest/unpredictable part. The optimization. I'm unaware of the business rules that UPS has so I will try to think about the possible constraints they have.
 
+   
 1. Given: 
-  a. The clustering of the packages of each day (from the previous model).
-  b. The delivery method classification from the previous model.
-  c. The delivery time of each package (some premium delivery packages has exact time delivery schedules).
-  d. The distance of each package.
-  e. The possible routes for packages that a GIS can provide.
-  f. Other business rules of UPS.
+   * The group of the packages addresses/locations of each day (from the previous model).
+   * The delivery method classification from the previous model.
+   * The delivery time of each package (some premium delivery packages has exact time delivery schedules).
+   * The distance of each package.
+   * Average speed of vehicles from historical data.
+   * Average of stops from historical data.
+   * The type of vehicle.
+   * Average miles per gallon from historical data.
+   * The possible routes for packages that a GIS can provide.
+   * Other business rules of UPS.
 
 2. Use: an optimization model
+
   Constraints: 
-    a. some packages will need a prioritization so the time should be taken into account depending on the distance.
-    b. More than 0 packages to deliver.
-    c. A maximum of distance to travel depending on the vehicle type.
-    d. a maximum of packages to deliver.
-    e. use the clusters that are near by a defined factor.
-    d. There are other operational constraints, like the human resources available or the functional vehicles at a certain time.
+    * some packages will need a prioritization so the time should be taken into account depending on the distance.
+    * More than 0 packages to deliver.
+    * A maximum of distance to travel depending on the vehicle type.
+    * a maximum of packages to deliver.
+    * use the clusters that are near by a defined factor.
+    * There are other operational constraints, like the human resources available or the functional vehicles at a certain time.
   
   Objective function: The goal is to minimize the distance traveled by each vehicle.
 
@@ -100,18 +112,19 @@ To: find the optimal delivery strategy for each day
 Another consideration to make is the seasonality, there are times when people buy more things and that will increase or decrease the rates of packages to be delivered, so UPS has to be ready for that.
 
 1. Given:
-    a. Use historical data of the number of deliveries done by the state, city for each day.
-    b. Use weather data. This could be historical or could be the predictions (the downside of predictions is that it has to be updated frequently)
+    * Use historical data of the number of deliveries done by the state, city for each day.
+    * Use weather data. This could be historical or could be the predictions (the downside of predictions is that it has to be updated frequently)
   
 2. Use: exponential smoothing to predict how many packages are going to be delivered each day 
 3. To: Take into account seasonality to know how many resources the company will need depending on the season.
 
 ## Further Analysis
 
-There are some things I have not taken account for and other things that are suppositions because of the lack of information I have on the case. For example, I have not taken into account how a package gets to a warehouse/delivery center. That could be another optimization that could be made through a model. I have not taken into account the complexity of the models and its difficulty or not difficulty of being used in a production environment. For example, I read that the current ORION system still doesn't take into account the weather conditions and it still is pretty good reducing millions of dollars in cost. Another example is that today there are drones available to deliver packages, and they don't follow the regular routes. Remember that a simple optimization or upgrade has a big impact in this business due to its high volume, so maybe the models implemented doesn't need to be that complex.
+There are some things I have not taken account for and other things that are suppositions because of the lack of information I have on the case. For example, I have not taken into account how a package gets to a warehouse/delivery center. That could be another optimization that could be made through a model. I have not taken into account the complexity of the models and its difficulty or not difficulty of being used in a production environment. For example, I read that the current ORION system still doesn't take into account the weather conditions and it still is pretty good reducing millions of dollars in cost. Another example is that today there are drones available to deliver packages, and they don't follow the regular routes. Remember that a simple optimization or upgrade has a big impact in this business due to its high volume, so maybe the models implemented doesn't need to be that complex. One thing that should be taken into account is that the models should be computed for each delivery and not in general because each delivery is different and it won't be accurate to be computed to all at the same time.
 
+Another thing that I did not mentioned before is that the standard procedure of modeling should be applied. Remove outliers, impute missin data values, scale data, feature selection,  apply different models, pick best one according to performance and test model to estimate quality. For example, by removing outliers from data, what will happen if a delivery truck broke down one day ? That type of data should be removed ? Or maybe the model wants to take into account that type of events, but I think that it will be better to have a separate model for that.
 
-Using the combination of predictive, descriptive, and predictive analytical models (daily) creates a solution that UPS could use to meets its service time and delivery goals. 
+Finally, using the combination of predictive, descriptive, and predictive analytical models (daily) creates a solution that UPS could use to meets its service time and delivery goals. 
 
 
 
